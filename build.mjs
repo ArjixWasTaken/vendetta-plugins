@@ -7,6 +7,7 @@ import esbuild from "rollup-plugin-esbuild";
 import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import swc from "@swc/core";
+import { readFileSync, writeFileSync } from "fs";
 
 const extensions = [".js", ".jsx", ".mjs", ".ts", ".tsx", ".cts", ".mts"];
 
@@ -48,6 +49,7 @@ const plugins = [
     esbuild({ minify: true }),
 ];
 
+const manifests = [];
 for (let plug of await readdir("./plugins")) {
     const manifest = JSON.parse(await readFile(`./plugins/${plug}/manifest.json`));
     const outPath = `./dist/${plug}/index.js`;
@@ -79,10 +81,21 @@ for (let plug of await readdir("./plugins")) {
         manifest.hash = createHash("sha256").update(toHash).digest("hex");
         manifest.main = "index.js";
         await writeFile(`./dist/${plug}/manifest.json`, JSON.stringify(manifest));
-    
+
+        manifests.push(manifest);
         console.log(`Successfully built ${manifest.name}!`);
     } catch (e) {
         console.error("Failed to build plugin...", e);
         process.exit(1);
     }
 }
+
+const readme = readFileSync("./README.md", "utf-8");
+const head = readme.split("<!-- PLUGINS-START -->")[0];
+const tail = readme.split("<!-- PLUGINS-END -->")[1];
+
+const pluginsList = manifests.map((manifest) => {
+    return `- ${manifest.name}`
+}).join("\n");
+
+writeFileSync("./README.md", `${head}<!-- PLUGINS-START -->\n${pluginsList}\n<!-- PLUGINS-END -->${tail}`);
